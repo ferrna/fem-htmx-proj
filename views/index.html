@@ -6,16 +6,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
     <script src="https://unpkg.com/htmx.org/dist/htmx.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", (event) => {
+            document.body.addEventListener('htmx:beforeSwap', function(evt) {
+                if (evt.detail.xhr.status === 422) {
+                    // allow 422 responses to swap as we are using this as a signal that
+                    // a form was submitted with bad data and want to rerender with the
+                    // errors
+                    //
+                    // set isError to false to avoid error logging in console
+                    evt.detail.shouldSwap = true;
+                    evt.detail.isError = false;
+                }
+            });
+        })
+    </script>
+    <link rel="stylesheet" href="/css/index.css">
 </head>
 <body>
-    <div id="count">
-        {{ template "count" . }}
+    <div>
+        {{ template "form" .Form }}
+        <hr>
+        {{ template "display" .Data }}
     </div>
-    <button hx-target="#count" hx-post="/">Increment</button>
 </body>
 </html>
 {{ end }}
 
-{{block "count" . }}
-    Count {{ .Count }}
+{{block "form" . }}
+    <form hx-swap="outerHTML" hx-post="/contacts">
+        Name<input type="text" name="name"
+        {{ if .Values.name }} value="{{ .Values.name }}" {{ end }}/>
+        Email<input type="text" name="email"
+        {{ if .Values.email }} value="{{ .Values.email }}" {{ end }}/>
+        {{ if .Errors.email }}
+            <span style="color: red">{{ .Errors.email }}</span>
+        {{ end }}
+        <button type="submit">Create user</button>
+    </form>
+{{end}}
+
+{{block "display" . }}
+    <div id="contacts" style="display: flex; flex-direction: column;">
+        {{ range .Contacts }}
+            {{template "contact" . }}
+        {{ end }}
+    </div>
+{{end}}
+
+{{block "contact" . }}
+    <div class="contact" style="display: flex;" id="contact-{{ .Id }}">
+        <div
+        hx-indicator="#ci-{{ .Id }}"
+        hx-target="#contact-{{ .Id }}"
+        hx-swap="outerHTML swap:500ms"
+        hx-delete="/contacts/{{ .Id  }}" style="width: 1rem; cursor: pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path fill="none" d="M0 0h24v24H0z"/>
+                <path d="M4 2h16a1 1 0 011 1v1a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM3 6h18v16a1 1 0 01-1 1H4a1 1 0 01-1-1V6zm3 3v9a1 1 0 002 0v-9a1 1 0 00-2 0zm5 0v9a1 1 0 002 0v-9a1 1 0 00-2 0zm5 0v9a1 1 0 002 0v-9a1 1 0 00-2 0z"/>
+            </svg>
+        </div>
+        <span>{{ .Name }}</span>
+        <span>{{ .Email }}</span>
+        <div id="ci-{{ .Id }}" class="htmx-indicator">
+            <img src="/images/bars.svg" alt="loading" style="width: 1rem">
+        </div>
+    </div>
+{{end}}
+
+{{block "oob-contact" . }}
+    <div id="contacts" hx-swap-oob="afterbegin">
+        {{template "contact" . }}
+    </div>
 {{end}}
